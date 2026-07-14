@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -78,7 +78,7 @@ def initialize_rag():
     chunks = text_splitter.split_documents(documents)
     
     # 4. Embeddings & Vector Store
-    embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    embedding_function = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=os.getenv("GEMINI_API_KEY"))
     vectorstore = Chroma.from_documents(
         documents=chunks, 
         embedding=embedding_function,
