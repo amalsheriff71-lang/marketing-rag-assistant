@@ -100,7 +100,7 @@ query = st.text_input(
 if st.button("Generate Insights"):
     current_api_key = api_key if api_key else os.environ.get("GOOGLE_API_KEY")
     
-    if not current_api_key:
+    if not current_api_key and "GEMINI_API_KEY" not in st.secrets:
         st.warning("⚠️ Please enter your Google API Key in the sidebar or set it in Streamlit Secrets.")
     elif query:
         with st.spinner("🧠 Analyzing social media data..."):
@@ -130,7 +130,7 @@ if st.button("Generate Insights"):
             prompt = ChatPromptTemplate.from_template(template)
             
             # Use Gemini Pro (Free Tier available via Google AI Studio)
-           llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=st.secrets["GEMINI_API_KEY"])
+            llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=st.secrets["GEMINI_API_KEY"])
             
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
