@@ -14,7 +14,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
 from langchain.schema.output_parser import StrOutputParser
@@ -35,9 +35,10 @@ based on social media engagement and sponsorship data.
 # --- Sidebar for Configuration & Sources ---
 with st.sidebar:
     st.header("⚙️ Configuration")
-    api_key = st.text_input("Enter OpenAI API Key:", type="password")
+  
+    api_key = st.text_input("Enter Gemini API Key:", type="password")
     if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
+        os.environ["GOOGLE_API_KEY"] = api_key
 
     st.divider()
     st.header("🔍 Intelligence Sources")
@@ -102,7 +103,8 @@ query = st.text_input(
 
 if st.button("Generate Insights"):
     if not api_key:
-        st.warning("⚠️ Please enter your OpenAI API Key in the sidebar to generate AI insights.")
+       
+        st.warning("⚠️ Please enter your Gemini API Key in the sidebar to generate AI insights.")
     elif query:
         with st.spinner("🧠 Analyzing social media data..."):
             # 1. Retrieve
@@ -129,7 +131,8 @@ if st.button("Generate Insights"):
             Marketing Intelligence Answer:
             """
             prompt = ChatPromptTemplate.from_template(template)
-            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+         
+            llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
 
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
