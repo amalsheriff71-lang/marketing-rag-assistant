@@ -78,7 +78,7 @@ def initialize_rag():
     chunks = text_splitter.split_documents(documents)
     
     # 4. Embeddings & Vector Store
-   embedding_function = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=st.secrets["GEMINI_API_KEY"])
+    embedding_function = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=st.secrets["GEMINI_API_KEY"])
     vectorstore = Chroma.from_documents(
         documents=chunks, 
         embedding=embedding_function,
