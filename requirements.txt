@@ -1,8 +1,0 @@
-streamlit
-pandas
-langchain
-langchain-community
-langchain-openai
-langchain-text-splitters
-chromadb
-sentence-transformers
