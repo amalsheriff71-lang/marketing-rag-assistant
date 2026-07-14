@@ -78,7 +78,7 @@ def initialize_rag():
     chunks = text_splitter.split_documents(documents)
     
     # 4. Embeddings & Vector Store
-    embedding_function = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=os.getenv("GEMINI_API_KEY"))
+   embedding_function = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=st.secrets["GEMINI_API_KEY"])
     vectorstore = Chroma.from_documents(
         documents=chunks, 
         embedding=embedding_function,
@@ -130,7 +130,7 @@ if st.button("Generate Insights"):
             prompt = ChatPromptTemplate.from_template(template)
             
             # Use Gemini Pro (Free Tier available via Google AI Studio)
-            llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=current_api_key, temperature=0)
+           llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=st.secrets["GEMINI_API_KEY"])
             
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
