@@ -183,7 +183,7 @@ if st.button("Generate Insights"):
             # gemini-2.5-flash is the current, fast, free-tier-friendly model.
             try:
                 llm = ChatGoogleGenerativeAI(
-                    model ="gemini-2.0-flash-lite",
+                    model ="gemini-1.5-flash",
                     google_api_key=current_api_key,
                     temperature=0
                 )
