@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-import tempfile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from google.api_core.exceptions import GoogleAPICallError
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -29,15 +29,9 @@ based on social media engagement and sponsorship data.
 with st.sidebar:
     st.header("⚙️ Configuration")
     st.markdown("[Get a Free Google API Key](https://aistudio.google.com/)")
-    
-    # يقرأ أولاً من الـ Secrets اللي سجلناها باسم API_KEY، وإلا يبحث في البيئة أو يتركها فارغة
-    default_key = st.secrets.get("API_KEY", os.environ.get("GOOGLE_API_KEY", ""))
-    
-    api_key = st.text_input(
-        "Enter Google API Key:",
-        type="password",
-        value=default_key,
-    )
+    api_key = st.text_input("Enter Google API Key:", type="password")
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
 
     st.divider()
     st.header("🔍 Intelligence Sources")
@@ -45,21 +39,41 @@ with st.sidebar:
     source_container = st.container()
 
 # --- RAG Logic (Cached for Performance) ---
-@st.cache_resource(show_spinner="🧠 Building knowledge base (first run only)...")
-def initialize_rag(_api_key: str):
-    # 1. Load Data
-    data_path = 'social_media_data/social_media_dataset.csv'
-    if not os.path.exists(data_path):
-        data_path = '/home/ubuntu/social_media_data/social_media_dataset.csv'
+@st.cache_resource
+def initialize_rag():
+    # 1. Load Data — resolve relative to this script's own location so it
+    # works the same locally and on Streamlit Community Cloud, regardless
+    # of the working directory the app happens to be launched from.
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate_paths = [
+        os.path.join(base_dir, "social_media_data", "social_media_dataset.csv"),
+        os.path.join(os.getcwd(), "social_media_data", "social_media_dataset.csv"),
+    ]
+    data_path = next((p for p in candidate_paths if os.path.exists(p)), None)
 
-    if not os.path.exists(data_path):
-        st.error(f"Dataset not found at {data_path}. Please ensure the 'social_media_data' folder is in your GitHub repository.")
-        return None
+    if data_path is None:
+        st.error(
+            "Dataset not found. Please ensure the 'social_media_data' folder "
+            "(containing social_media_dataset.csv) is committed to your GitHub repository "
+            "alongside app.py."
+        )
+        return None, None
 
     df = pd.read_csv(data_path)
     df['content_description'] = df['content_description'].fillna('')
     df['comments_text'] = df['comments_text'].fillna('')
-    df['is_sponsored'] = df['is_sponsored'].map({True: 'Sponsored', False: 'Not Sponsored'}).fillna('Unknown')
+
+    # Robust boolean normalization: handles real bools, "True"/"False" strings,
+    # and 0/1 values — the original .map({True:..., False:...}) silently
+    # produced NaN whenever pandas didn't infer a native bool dtype.
+    def normalize_sponsored(val):
+        if isinstance(val, bool):
+            return 'Sponsored' if val else 'Not Sponsored'
+        if isinstance(val, (int, float)):
+            return 'Sponsored' if val == 1 else 'Not Sponsored'
+        return 'Sponsored' if str(val).strip().lower() in ('true', '1', 'yes') else 'Not Sponsored'
+
+    df['is_sponsored'] = df['is_sponsored'].apply(normalize_sponsored)
 
     # 2. Create Documents
     documents = []
@@ -75,7 +89,7 @@ def initialize_rag(_api_key: str):
         metadata = {
             "platform": row['platform'],
             "category": row['content_category'],
-            "likes": int(row['likes']) if pd.notna(row['likes']) else 0,
+            "likes": row['likes']
         }
         documents.append(Document(page_content=content, metadata=metadata))
 
@@ -83,29 +97,21 @@ def initialize_rag(_api_key: str):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(documents)
 
-    # 4. Embeddings (Gemini) & Vector Store
-    # تم التعديل إلى الموديل المستقر لتجنب خطأ الـ 404
-    embedding_function = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=_api_key,
+    # 4. Embeddings & Vector Store
+    # No persist_directory: Streamlit Community Cloud's filesystem is
+    # ephemeral per session, and st.cache_resource already keeps this
+    # in memory for the lifetime of the app — writing to disk just risks
+    # permission/duplicate-collection errors on redeploys.
+    embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=embedding_function,
     )
 
-    persist_dir = os.path.join(tempfile.gettempdir(), "streamlit_vector_db")
+    return vectorstore, embedding_function
 
-    try:
-        vectorstore = Chroma.from_documents(
-            documents=chunks,
-            embedding=embedding_function,
-            persist_directory=persist_dir,
-        )
-    except GoogleAPICallError as e:
-        st.error(f"❌ Google API rejected the embedding request: {e}")
-        return None
-    except Exception as e:
-        st.error(f"❌ Failed to build the vector store: {e}")
-        return None
-
-    return vectorstore
+# --- Initialize ---
+vectorstore, embedding_function = initialize_rag()
 
 # --- Main Interface ---
 query = st.text_input(
@@ -115,58 +121,54 @@ query = st.text_input(
 )
 
 if st.button("Generate Insights"):
-    if not api_key:
-        st.warning("⚠️ Please enter your Google API Key in the sidebar first.")
-    elif not query:
-        st.info("💡 Enter a question above to get started.")
-    else:
+    current_api_key = api_key if api_key else os.environ.get("GOOGLE_API_KEY")
+
+    if not current_api_key:
+        st.warning("⚠️ Please enter your Google API Key in the sidebar or set it in Streamlit Secrets.")
+    elif vectorstore is None:
+        st.error("The knowledge base could not be loaded. Fix the dataset path issue above and try again.")
+    elif query:
         with st.spinner("🧠 Analyzing social media data..."):
-            vectorstore = initialize_rag(api_key)
+            # 1. Retrieve
+            retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+            retrieved_docs = retriever.invoke(query)
 
-            if vectorstore is None:
-                st.stop()
+            # 2. Update Sidebar with Sources
+            with source_container:
+                st.subheader("📍 Retrieved Posts")
+                for i, doc in enumerate(retrieved_docs):
+                    with st.expander(f"Source {i+1}: {doc.metadata.get('platform')} ({doc.metadata.get('category')})"):
+                        st.write(doc.page_content)
 
+            # 3. Generate
+            template = """
+            You are a Senior Marketing Analyst. Use the following social media data to answer the user's question.
+            Provide data-driven insights and specific recommendations.
+
+            Context:
+            {context}
+
+            Question: {question}
+
+            Marketing Intelligence Answer:
+            """
+            prompt = ChatPromptTemplate.from_template(template)
+
+            # FIX: "gemini-pro" was retired by Google and now returns a 404
+            # ("models/gemini-pro is not found for API version v1beta").
+            # gemini-2.5-flash is the current, fast, free-tier-friendly model.
             try:
-                # 1. Retrieve
-                retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-                retrieved_docs = retriever.invoke(query)
-
-                # 2. Update Sidebar with Sources
-                with source_container:
-                    st.subheader("📍 Retrieved Posts")
-                    for i, doc in enumerate(retrieved_docs):
-                        with st.expander(f"Source {i+1}: {doc.metadata.get('platform')} ({doc.metadata.get('category')})"):
-                            st.write(doc.page_content)
-
-                # 3. Generate
-                template = """
-                You are a Senior Marketing Analyst. Use the following social media data to answer the user's question.
-                Provide data-driven insights and specific recommendations.
-
-                Context:
-                {context}
-
-                Question: {question}
-
-                Marketing Intelligence Answer:
-                """
-                prompt = ChatPromptTemplate.from_template(template)
-
-                # استخدام الموديل المجاني السريع لـ Gemini
                 llm = ChatGoogleGenerativeAI(
                     model="gemini-2.5-flash",
-                    google_api_key=api_key,
-                    temperature=0,
+                    google_api_key=current_api_key,
+                    temperature=0
                 )
 
                 def format_docs(docs):
                     return "\n\n".join(doc.page_content for doc in docs)
 
                 chain = (
-                    {
-                        "context": lambda x: format_docs(retrieved_docs),
-                        "question": lambda x: x,
-                    }
+                    {"context": lambda x: format_docs(retrieved_docs), "question": RunnablePassthrough()}
                     | prompt
                     | llm
                     | StrOutputParser()
@@ -178,11 +180,14 @@ if st.button("Generate Insights"):
                 st.success("✅ Analysis Complete")
                 st.markdown("### 📊 Marketing Insights")
                 st.write(response)
-
-            except GoogleAPICallError as e:
-                st.error(f"❌ Google API error: {e}. Double-check your API key and that the Gemini API is enabled for it.")
             except Exception as e:
-                st.error(f"❌ Something went wrong while generating insights: {e}")
+                st.error(f"❌ Error generating insights: {e}")
+                st.info(
+                    "Double-check that your Google API key is valid and that the Gemini API "
+                    "is enabled for it at https://aistudio.google.com/."
+                )
+    else:
+        st.info("💡 Enter a question above to get started.")
 
 # --- Footer ---
 st.divider()
