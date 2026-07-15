@@ -29,10 +29,17 @@ based on social media engagement and sponsorship data.
 # --- Sidebar for Configuration & Sources ---
 with st.sidebar:
     st.header("⚙️ Configuration")
-    st.markdown("[Get a Free Google API Key](https://aistudio.google.com/)")
-    api_key = st.text_input("Enter Google API Key:", type="password")
-    if api_key:
+    
+    # التحقق أولاً من وجود المفتاح في الـ Secrets
+    if "API_KEY" in st.secrets:
+        api_key = st.secrets["API_KEY"]
         os.environ["GOOGLE_API_KEY"] = api_key
+        st.success("🔑 API Key loaded automatically!")
+    else:
+        st.markdown("[Get a Free Google API Key](https://aistudio.google.com/)")
+        api_key = st.text_input("Enter Google API Key:", type="password")
+        if api_key:
+            os.environ["GOOGLE_API_KEY"] = api_key
 
     st.divider()
     st.header("🔍 Intelligence Sources")
