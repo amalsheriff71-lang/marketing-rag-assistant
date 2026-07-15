@@ -30,16 +30,28 @@ based on social media engagement and sponsorship data.
 with st.sidebar:
     st.header("⚙️ Configuration")
     
-    # التحقق أولاً من وجود المفتاح في الـ Secrets
+   # --- API KEY Configuration ---
+
+api_key = None
+
+try:
     if "API_KEY" in st.secrets:
         api_key = st.secrets["API_KEY"]
-        os.environ["GOOGLE_API_KEY"] = api_key
-        st.success("🔑 API Key loaded automatically!")
+        st.success("🔑 API Key loaded from Streamlit Secrets")
     else:
-        st.markdown("[Get a Free Google API Key](https://aistudio.google.com/)")
-        api_key = st.text_input("Enter Google API Key:", type="password")
-        if api_key:
-            os.environ["GOOGLE_API_KEY"] = api_key
+        st.warning("No API Key found in Secrets")
+except Exception:
+    st.warning("Secrets not configured")
+
+# Allow manual input as backup
+if not api_key:
+    api_key = st.text_input(
+        "Enter Google Gemini API Key:",
+        type="password"
+    )
+
+if api_key:
+    os.environ["GOOGLE_API_KEY"] = api_key
 
     st.divider()
     st.header("🔍 Intelligence Sources")
@@ -173,7 +185,7 @@ if st.button("Generate Insights"):
             # gemini-2.5-flash is the current, fast, free-tier-friendly model.
             try:
                 llm = ChatGoogleGenerativeAI(
-                    model = "gemini-3.5-flash",
+                    model ="gemini-2.5-flash",
                     google_api_key=current_api_key,
                     temperature=0
                 )
