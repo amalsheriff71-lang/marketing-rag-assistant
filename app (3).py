@@ -29,10 +29,14 @@ based on social media engagement and sponsorship data.
 with st.sidebar:
     st.header("⚙️ Configuration")
     st.markdown("[Get a Free Google API Key](https://aistudio.google.com/)")
+    
+    # يقرأ أولاً من الـ Secrets اللي سجلناها باسم API_KEY، وإلا يبحث في البيئة أو يتركها فارغة
+    default_key = st.secrets.get("API_KEY", os.environ.get("GOOGLE_API_KEY", ""))
+    
     api_key = st.text_input(
         "Enter Google API Key:",
         type="password",
-        value=os.environ.get("GOOGLE_API_KEY", ""),
+        value=default_key,
     )
 
     st.divider()
@@ -41,9 +45,6 @@ with st.sidebar:
     source_container = st.container()
 
 # --- RAG Logic (Cached for Performance) ---
-# IMPORTANT: the api_key is now passed in as an argument so that:
-#  1. st.cache_resource keys the cache on the api_key (rebuilds if it changes)
-#  2. this function is never executed before the user actually supplies a key
 @st.cache_resource(show_spinner="🧠 Building knowledge base (first run only)...")
 def initialize_rag(_api_key: str):
     # 1. Load Data
@@ -83,16 +84,12 @@ def initialize_rag(_api_key: str):
     chunks = text_splitter.split_documents(documents)
 
     # 4. Embeddings (Gemini) & Vector Store
-    # Uses Google's own embedding model instead of sentence-transformers, so we
-    # don't need to ship/download a multi-hundred-MB torch model on every deploy.
+    # تم التعديل إلى الموديل المستقر لتجنب خطأ الـ 404
     embedding_function = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/embedding-001",
         google_api_key=_api_key,
     )
 
-    # Streamlit Community Cloud's filesystem is read-only outside of /tmp, so
-    # persisting to "./streamlit_vector_db" can throw a permissions error there.
-    # Use a temp directory instead, and don't try to persist across restarts.
     persist_dir = os.path.join(tempfile.gettempdir(), "streamlit_vector_db")
 
     try:
@@ -155,8 +152,7 @@ if st.button("Generate Insights"):
                 """
                 prompt = ChatPromptTemplate.from_template(template)
 
-                # gemini-pro was retired; gemini-2.5-flash is the current fast,
-                # free-tier-friendly chat model.
+                # استخدام الموديل المجاني السريع لـ Gemini
                 llm = ChatGoogleGenerativeAI(
                     model="gemini-2.5-flash",
                     google_api_key=api_key,
