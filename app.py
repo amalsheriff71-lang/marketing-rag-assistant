@@ -27,37 +27,35 @@ based on social media engagement and sponsorship data.
 """)
 
 # --- Sidebar for Configuration & Sources ---
+# --- Sidebar for Configuration & Sources ---
+
 with st.sidebar:
     st.header("⚙️ Configuration")
-    
-   # --- API KEY Configuration ---
 
-api_key = None
-
-try:
-    if "API_KEY" in st.secrets:
+    # Load API Key from Streamlit Cloud Secrets
+    try:
         api_key = st.secrets["API_KEY"]
         st.success("🔑 API Key loaded from Streamlit Secrets")
-    else:
-        st.warning("No API Key found in Secrets")
-except Exception:
-    st.warning("Secrets not configured")
 
-# Allow manual input as backup
-if not api_key:
-    api_key = st.text_input(
-        "Enter Google Gemini API Key:",
-        type="password"
-    )
+    except Exception:
+        api_key = None
+        st.error(
+            "❌ API Key not found.\n\n"
+            "Add API_KEY in Streamlit Cloud → Settings → Secrets"
+        )
 
-if api_key:
-    os.environ["GOOGLE_API_KEY"] = api_key
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
 
     st.divider()
-    st.header("🔍 Intelligence Sources")
-    st.info("When you ask a question, the AI retrieves the most relevant social media posts to ground its answer.")
-    source_container = st.container()
 
+    st.header("🔍 Intelligence Sources")
+    st.info(
+        "When you ask a question, the AI retrieves the most relevant "
+        "social media posts to ground its answer."
+    )
+
+    source_container = st.container()
 # --- RAG Logic (Cached for Performance) ---
 @st.cache_resource
 def initialize_rag():
