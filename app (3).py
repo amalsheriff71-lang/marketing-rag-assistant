@@ -1,3 +1,7 @@
+__import__("pysqlite3")
+import sys
+sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+
 import streamlit as st
 import pandas as pd
 import os
@@ -19,6 +23,7 @@ st.set_page_config(
 
 st.title("🚀 Social Media Marketing Intelligence Assistant")
 st.info("💡 This version uses the **Google Gemini API**, which offers a free tier for students and developers.")
+st.success("✅ Demo mode: Using a representative sample of 10,000 posts for faster performance.")
 
 st.markdown("""
 This assistant uses **Retrieval-Augmented Generation (RAG)** to provide data-driven marketing insights 
@@ -60,6 +65,12 @@ def initialize_rag():
         return None, None
 
     df = pd.read_csv(data_path)
+
+    # Use a representative sample for deployment performance
+    MAX_ROWS = 10000
+    if len(df) > MAX_ROWS:
+        df = df.sample(n=MAX_ROWS, random_state=42).reset_index(drop=True)
+
     df['content_description'] = df['content_description'].fillna('')
     df['comments_text'] = df['comments_text'].fillna('')
 
