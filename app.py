@@ -5,7 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -34,7 +34,7 @@ with st.sidebar:
 
     # Load API Key from Streamlit Cloud Secrets
     try:
-        api_key = st.secrets["API_KEY"]
+        groq_api_key = st.secrets["GROQ_API_KEY"]
         st.success("🔑 API Key loaded from Streamlit Secrets")
 
     except Exception:
@@ -182,9 +182,9 @@ if st.button("Generate Insights"):
             # ("models/gemini-pro is not found for API version v1beta").
             # gemini-2.5-flash is the current, fast, free-tier-friendly model.
             try:
-                llm = ChatGoogleGenerativeAI(
-                    model ="gemini-2.0-flash",
-                    google_api_key=current_api_key,
+                llm = ChatGroq(
+                    model ="llama-3.1-8b-instant",
+                    groq_api_key=groq_api_key,
                     temperature=0
                 )
 
