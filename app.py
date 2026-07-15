@@ -29,23 +29,18 @@ based on social media engagement and sponsorship data.
 # --- Sidebar for Configuration & Sources ---
 # --- Sidebar for Configuration & Sources ---
 
+# --- Sidebar for Configuration & Sources ---
+
 with st.sidebar:
     st.header("⚙️ Configuration")
 
-    # Load API Key from Streamlit Cloud Secrets
     try:
         groq_api_key = st.secrets["GROQ_API_KEY"]
-        st.success("🔑 API Key loaded from Streamlit Secrets")
+        st.success("🔑 Groq API Key loaded successfully")
 
     except Exception:
-        api_key = None
-        st.error(
-            "❌ API Key not found.\n\n"
-            "Add API_KEY in Streamlit Cloud → Settings → Secrets"
-        )
-
-    if api_key:
-        os.environ["GOOGLE_API_KEY"] = api_key
+        groq_api_key = None
+        st.error("❌ GROQ_API_KEY not found in Streamlit Secrets")
 
     st.divider()
 
@@ -145,7 +140,7 @@ query = st.text_input(
 )
 
 if st.button("Generate Insights"):
-    current_api_key = api_key if api_key else os.environ.get("GOOGLE_API_KEY")
+    current_api_key = groq_api_key
 
     if not current_api_key:
         st.warning("⚠️ Please enter your Google API Key in the sidebar or set it in Streamlit Secrets.")
@@ -183,8 +178,8 @@ if st.button("Generate Insights"):
             # gemini-2.5-flash is the current, fast, free-tier-friendly model.
             try:
                 llm = ChatGroq(
-                    model ="llama-3.1-8b-instant",
-                    groq_api_key=groq_api_key,
+                    model="llama-3.1-8b-instant",
+                    groq_api_key=current_api_key,
                     temperature=0
                 )
 
