@@ -1,8 +1,9 @@
-streamlit
-pandas
-langchain-text-splitters
-langchain-core
-langchain-google-genai>=4.0.0
-google-genai>=0.1.1
-langchain-community
-chromadb
+streamlit==1.38.0
+pandas==2.2.2
+langchain==0.3.7
+langchain-community==0.3.5
+langchain-google-genai==2.0.4
+langchain-text-splitters==0.3.0
+langchain-core==0.3.15
+chromadb==0.5.15
+sentence-transformers==3.2.1
